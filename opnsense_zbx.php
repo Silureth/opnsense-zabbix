@@ -312,54 +312,58 @@ function opnf_openvpn_get_all_servers()
 function opnf_openvpn_servervalue($server_id, $valuekey)
 {
 	$servers = opnf_openvpn_get_all_servers();
-	$clients = openvpn_get_connection_statuses()->$server_id;
+	$all_clients = openvpn_get_connection_statuses();
+	$clients = $all_clients->$server_id ?? null;
+	$value = "";
 
 	foreach ($servers as $server) {
 		if ($server['vpnid'] == $server_id) {
-			$value = $server[$valuekey];
+			$value = $server[$valuekey] ?? "";
+
 			switch ($valuekey) {
 				case "status":
-					if (is_object($clients) && property_exists($clients, "status") && !empty($clients->status)) {
-						$value = $clients->status;
+					$client_status = is_object($clients) && isset($clients->status) ? trim((string)$clients->status) : "";
+
+					if ($client_status !== "") {
+						$value = $client_status;
 					} elseif (($server['mode'] == "server_user") || ($server['mode'] == "server_tls_user") || ($server['mode'] == "server_tls")) {
-						if ($value == "") {
-							$value = "server_user_listening";
-						}
+						$value = "server_user_listening";
 					} elseif ($server['mode'] == "p2p_tls") {
-						if ($value == "") {
-							$value = (is_object($clients) && property_exists($clients, "status") && $clients->status == "connected") ? "up" : "down";
-						}
+						$value = ($client_status === "connected") ? "up" : "down";
 					}
 					break;
+
 				case "port":
-					if ($value == "")
-						$value = $server['local_port'];
+					if ($value == "") {
+						$value = $server['local_port'] ?? "";
+					}
 					break;
+
 				case "real_address":
-					if (is_null($clients))
+					if (is_null($clients)) {
 						$value = "";
-					elseif ($value == "" && property_exists($clients, "real_address"))
+					} elseif ($value == "" && isset($clients->real_address)) {
 						$value = $clients->real_address;
+					}
 					break;
 			}
+			break;
 		}
 	}
 
 	switch ($valuekey) {
-
 		case "conns":
-			//Client Connections: is an array so it is sufficient to count elements
-			if (is_array($clients->client_list))
+			if (is_object($clients) && isset($clients->client_list) && is_array($clients->client_list)) {
 				$value = count($clients->client_list);
-			else if (is_object($clients) && property_exists($clients, "status") && $clients->status == "connected")
+			} elseif (is_object($clients) && isset($clients->status) && $clients->status == "connected") {
 				$value = "1";
-			else
+			} else {
 				$value = "0";
+			}
 			break;
 
 		case "status":
-
-			$value = opnf_valuemap("openvpn.server.status", $value);
+			$value = opnf_valuemap("openvpn.server.status", trim((string)$value));
 			break;
 
 		case "mode":
@@ -367,7 +371,6 @@ function opnf_openvpn_servervalue($server_id, $valuekey)
 			break;
 	}
 
-	//if ($value=="") $value="none";
 	echo $value;
 }
 
