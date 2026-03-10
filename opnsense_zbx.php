@@ -71,11 +71,13 @@ function system_get_version()
 
 function openvpn_get_connection_statuses($servers_only = true)
 {
-	$prog = "/usr/local/bin/python3";
-	$script = "/usr/local/opnsense/scripts/openvpn/ovpn_status.py";
-	$json_decode = true;
-	$clients = execute_script($prog, $script, $json_decode);
-	if ($servers_only == true) return $clients->server;
+	$command = '/usr/local/bin/python3 /usr/local/opnsense/scripts/openvpn/ovpn_status.py 2>/dev/null';
+	$result = shell_exec($command);
+	$clients = json_decode($result);
+
+	if ($servers_only == true) {
+		return $clients->server ?? null;
+	}
 	return $clients;
 }
 
