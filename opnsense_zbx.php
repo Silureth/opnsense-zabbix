@@ -1081,9 +1081,9 @@ function opnf_carp_status($echo = true)
 			if ($carp['mode'] != "carp") {
 				continue;
 			}
-			$if_vhid =$carp['vhid"'];
+			$if_vhid = $carp['vhid"'];
 			//$if_status = get_carp_interface_status("_vip{$carp['uniqid']}"); //TODO, would be better to find it through uniqid
-			$if_status = get_carp_status_by_vhid($if_vhid);			
+			$if_status = get_carp_status_by_vhid($if_vhid);
 
 			if (($prev_status != $if_status) && (empty($if_status) == false)) { //Some glitches with GUI
 				if ($prev_status != "") $status_changed = true;
@@ -1565,6 +1565,7 @@ function opnf_valuemap($valuename, $value, $default = "0")
 			$valuemap = array(
 				"down" => "0",
 				"up" => "1",
+				"ok" => "1",
 				"connected (success)" => "1",
 				"none" => "2",
 				"reconnecting; ping-restart" => "3",
