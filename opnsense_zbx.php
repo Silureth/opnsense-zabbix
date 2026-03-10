@@ -265,7 +265,8 @@ function opnf_t_serverdiscovery($T)
 	$json_string = '{"data":[';
 
 	foreach ($servers as $server) {
-		$json_string .= '{"{#SERVER}":"' . $server['vpnid'] . '"';
+		$server_key = $server['instance_uuid'] ?? $server['vpnid'];
+		$json_string .= '{"{#SERVER}":"' . $server_key . '"';
 		$json_string .= ',"{#NAME}":"' . $server['description'] . '"';
 		$json_string .= '},';
 	}
@@ -295,17 +296,28 @@ function opnf_wireguard_get_all_servers()
 // OpenVPN Server Discovery
 function opnf_openvpn_get_all_servers()
 {
-	$ovpn_config = (new \OPNsense\OpenVPN\OpenVPN());
+	$ovpn_config = new \OPNsense\OpenVPN\OpenVPN();
 	$ovpn_server_ids = openvpn_services();
 	$ovpn_servers = array();
+
 	foreach ($ovpn_server_ids as $index => $ovpn_instance) {
 		$ovpn_server_id = $ovpn_instance['id'];
-		// ---------------------------------- getInstanceById(server_id,    server_type)
 		$ovpn_server_instance = $ovpn_config->getInstanceById($ovpn_server_id, "server");
-		if ($ovpn_server_instance)
+
+		if ($ovpn_server_instance) {
+			if (isset($ovpn_instance['uuid'])) {
+				$ovpn_server_instance['instance_uuid'] = $ovpn_instance['uuid'];
+			} elseif (isset($ovpn_server_instance['uuid'])) {
+				$ovpn_server_instance['instance_uuid'] = $ovpn_server_instance['uuid'];
+			} else {
+				$ovpn_server_instance['instance_uuid'] = (string)$ovpn_server_id;
+			}
+
 			array_push($ovpn_servers, $ovpn_server_instance);
+		}
 	}
-	return ($ovpn_servers);
+
+	return $ovpn_servers;
 }
 
 // Get OpenVPN Server Value
@@ -315,7 +327,8 @@ function opnf_openvpn_servervalue($server_id, $valuekey)
 	$server_cfg = null;
 
 	foreach ($servers as $server) {
-		if ($server['vpnid'] == $server_id) {
+		$server_key = $server['instance_uuid'] ?? $server['vpnid'];
+		if ($server['vpnid'] == $server_id || $server_key == $server_id) {
 			$server_cfg = $server;
 			break;
 		}
@@ -382,7 +395,7 @@ function opnf_openvpn_server_userdiscovery()
 	$json_string = '{"data":[';
 
 	foreach ($servers as $server) {
-		$server_id = $server['vpnid'];
+		$server_id = $server['instance_uuid'] ?? $server['vpnid'];
 		if (($server['mode'] == 'server_user') || ($server['mode'] == 'server_tls_user') || ($server['mode'] == 'server_tls')) {
 			$clients = $all_clients->$server_id->client_list;
 			if (is_array($clients)) {
@@ -409,7 +422,6 @@ function opnf_openvpn_server_userdiscovery()
 // Get OpenVPN User Connected Value
 function opnf_openvpn_server_uservalue($unique_id, $valuekey, $default = "")
 {
-
 	$unique_id = opnf_replacespecialchars($unique_id, true);
 	$atpos = strpos($unique_id, '+');
 	$server_id = substr($unique_id, 0, $atpos);
@@ -417,23 +429,29 @@ function opnf_openvpn_server_uservalue($unique_id, $valuekey, $default = "")
 
 	$servers = opnf_openvpn_get_all_servers();
 	$all_clients = openvpn_get_connection_statuses();
+	$value = "";
+
 	foreach ($servers as $server) {
-		if ($server['vpnid'] == $server_id) {
-			$server_id = $server['vpnid'];
-			$clients = $all_clients->$server_id->client_list;
+		$server_key = $server['instance_uuid'] ?? $server['vpnid'];
+
+		if ($server['vpnid'] == $server_id || $server_key == $server_id) {
+			$clients = $all_clients->$server_key->client_list ?? array();
+
 			foreach ($clients as $client) {
 				if ($client->common_name == $user_id) {
-					$value = $client->$valuekey;
-					switch ($valuekey) {
-						case "username":
-							if ($client->$valuekey == "UNDEF") $value = "None";
-							break;
+					$value = $client->$valuekey ?? "";
+					if ($valuekey == "username" && $value == "UNDEF") {
+						$value = "None";
 					}
+					break 2;
 				}
 			}
 		}
 	}
-	if ($value == "") $value = $default;
+
+	if ($value == "") {
+		$value = $default;
+	}
 	echo $value;
 }
 
