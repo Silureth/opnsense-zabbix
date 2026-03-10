@@ -312,66 +312,65 @@ function opnf_openvpn_get_all_servers()
 function opnf_openvpn_servervalue($server_id, $valuekey)
 {
 	$servers = opnf_openvpn_get_all_servers();
-	$all_clients = openvpn_get_connection_statuses();
-	$clients = $all_clients->$server_id ?? null;
-	$value = "";
+	$server_cfg = null;
 
 	foreach ($servers as $server) {
 		if ($server['vpnid'] == $server_id) {
-			$value = $server[$valuekey] ?? "";
-
-			switch ($valuekey) {
-				case "status":
-					$client_status = is_object($clients) && isset($clients->status) ? trim((string)$clients->status) : "";
-
-					if ($client_status !== "") {
-						$value = $client_status;
-					} elseif (($server['mode'] == "server_user") || ($server['mode'] == "server_tls_user") || ($server['mode'] == "server_tls")) {
-						$value = "server_user_listening";
-					} elseif ($server['mode'] == "p2p_tls") {
-						$value = ($client_status === "connected") ? "up" : "down";
-					}
-					break;
-
-				case "port":
-					if ($value == "") {
-						$value = $server['local_port'] ?? "";
-					}
-					break;
-
-				case "real_address":
-					if (is_null($clients)) {
-						$value = "";
-					} elseif ($value == "" && isset($clients->real_address)) {
-						$value = $clients->real_address;
-					}
-					break;
-			}
+			$server_cfg = $server;
 			break;
 		}
 	}
 
+	$all_status = openvpn_get_connection_statuses();
+	$client_status = $all_status->$server_id ?? null;
+
 	switch ($valuekey) {
 		case "conns":
-			if (is_object($clients) && isset($clients->client_list) && is_array($clients->client_list)) {
-				$value = count($clients->client_list);
-			} elseif (is_object($clients) && isset($clients->status) && $clients->status == "connected") {
-				$value = "1";
+			if (is_object($client_status) && isset($client_status->client_list) && is_array($client_status->client_list)) {
+				echo count($client_status->client_list);
 			} else {
-				$value = "0";
+				echo "0";
 			}
-			break;
+			return;
 
 		case "status":
-			$value = opnf_valuemap("openvpn.server.status", trim((string)$value));
-			break;
+			$raw_status = "";
+
+			if (is_object($client_status) && isset($client_status->status)) {
+				$raw_status = trim((string)$client_status->status);
+			}
+
+			if ($raw_status === "" && $server_cfg) {
+				$mode = $server_cfg['mode'] ?? "";
+
+				if ($mode === "server_user" || $mode === "server_tls_user" || $mode === "server_tls") {
+					$raw_status = "server_user_listening";
+				} elseif ($mode === "p2p_tls") {
+					$raw_status = "down";
+				}
+			}
+
+			echo opnf_valuemap("openvpn.server.status", $raw_status);
+			return;
+
+		case "port":
+			echo $server_cfg['local_port'] ?? "";
+			return;
+
+		case "real_address":
+			if (is_object($client_status) && isset($client_status->real_address)) {
+				echo $client_status->real_address;
+			} else {
+				echo "";
+			}
+			return;
 
 		case "mode":
-			$value = opnf_valuemap("openvpn.server.mode", $value);
-			break;
+			echo opnf_valuemap("openvpn.server.mode", $server_cfg['mode'] ?? "");
+			return;
 	}
 
-	echo $value;
+	echo $server_cfg[$valuekey] ?? "";
 }
 
 //OpenVPN Server/User-Auth Discovery
