@@ -319,12 +319,16 @@ function opnf_openvpn_servervalue($server_id, $valuekey)
 			$value = $server[$valuekey];
 			switch ($valuekey) {
 				case "status":
-					if (($server['mode'] == "server_user") || ($server['mode'] == "server_tls_user") || ($server['mode'] == "server_tls")) {
-						if ($value == "") $value = "server_user_listening";
+					if (is_object($clients) && property_exists($clients, "status") && $clients->status !== "") {
+						$value = $clients->status;
+					} elseif (($server['mode'] == "server_user") || ($server['mode'] == "server_tls_user") || ($server['mode'] == "server_tls")) {
+						if ($value == "") {
+							$value = "server_user_listening";
+						}
 					} else if ($server['mode'] == "p2p_tls") {
-						// For p2p_tls, ensure we have one client, and return up if it's the case
-						if ($value == "")
-							$value = (is_array($server) && $clients->status == "connected") ? "up" : "down";
+						if ($value == "") {
+							$value = (is_object($clients) && property_exists($clients, "status") && $clients->status == "connected") ? "up" : "down";
+						}
 					}
 					break;
 				case "port":
